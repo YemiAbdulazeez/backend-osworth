@@ -33,6 +33,7 @@ export const SETTINGS = {
   seo_title: "Osworth Nigeria Limited — Quality Healthcare Within Reach",
   seo_description:
     "Quality pharmaceutical, personal care and healthcare products from Osworth Nigeria Limited, a wholly owned subsidiary of May & Baker Nigeria Plc.",
+  ecommerce_enabled: 0,
   updated_at: STAMP,
 };
 

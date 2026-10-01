@@ -4,6 +4,7 @@ services:
     runtime: docker
     plan: starter
     healthCheckPath: /api/v1/health
+    # Prefer Dockerfile CMD (migrate → seed → start). Do not override with node-only.
     envVars:
       - key: NODE_ENV
         value: production
@@ -45,4 +46,3 @@ services:
         sync: false
       - key: SEED_SUPER_ADMIN_NAME
         value: Osworth Super Admin
-    dockerCommand: node dist/index.js

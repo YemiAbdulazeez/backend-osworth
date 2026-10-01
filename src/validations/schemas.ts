@@ -169,6 +169,7 @@ export const settingsPatchSchema = z
     may_and_baker_url: optionalText(512),
     seo_title: optionalText(512),
     seo_description: optionalText(5000),
+    ecommerce_enabled: z.boolean().optional(),
   })
   .refine((value) => Object.values(value).some((item) => item !== undefined), { message: "No fields to update" });
 

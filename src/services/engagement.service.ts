@@ -68,7 +68,15 @@ function mapSubscriber(row: SqlRow) {
   };
 }
 
+async function assertOrderingEnabled() {
+  const rows = await database.query("SELECT ecommerce_enabled FROM site_settings WHERE `key` = 'global' LIMIT 1");
+  if (!Number(rows[0]?.ecommerce_enabled ?? 0)) {
+    throw new HttpError(403, "ORDERING_DISABLED", "Online order requests are currently unavailable. Please contact us directly.");
+  }
+}
+
 export async function createOrder(input: OrderInput) {
+  await assertOrderingEnabled();
   const items = input.items.map((item) => ({
     id: item.id,
     slug: item.slug,

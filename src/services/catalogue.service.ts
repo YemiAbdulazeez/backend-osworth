@@ -129,6 +129,7 @@ function mapSettings(row: SqlRow) {
     may_and_baker_url: row.may_and_baker_url == null ? null : String(row.may_and_baker_url),
     seo_title: row.seo_title == null ? null : String(row.seo_title),
     seo_description: row.seo_description == null ? null : String(row.seo_description),
+    ecommerce_enabled: Boolean(Number(row.ecommerce_enabled ?? 0)),
     updated_at: toIso(row.updated_at),
   };
 }
@@ -594,8 +595,11 @@ export async function getSettings() {
   return mapSettings(rows[0]);
 }
 
-export async function updateSettings(actor: StaffActor, input: Record<string, string | null | undefined>) {
-  await getSettings();
+export async function updateSettings(
+  actor: StaffActor,
+  input: Record<string, string | null | undefined> & { ecommerce_enabled?: boolean },
+) {
+  const current = await getSettings();
   const allowed = [
     "company_name",
     "hotline",
@@ -616,8 +620,13 @@ export async function updateSettings(actor: StaffActor, input: Record<string, st
   for (const key of allowed) {
     if (input[key] !== undefined) fields[key] = text(input[key]);
   }
+  if (input.ecommerce_enabled !== undefined) fields.ecommerce_enabled = bit(input.ecommerce_enabled);
   if (Object.keys(fields).length === 0) throw new HttpError(400, "EMPTY_PATCH", "No fields to update");
-  await withAudit(actor, "Updated site settings", async (tx) => {
+  const toggled = input.ecommerce_enabled !== undefined && input.ecommerce_enabled !== current.ecommerce_enabled;
+  const summary = toggled
+    ? `Turned online order requests ${input.ecommerce_enabled ? "on" : "off"}`
+    : "Updated site settings";
+  await withAudit(actor, summary, async (tx) => {
     const keys = Object.keys(fields);
     const assignments = keys.map((key) => `\`${key}\` = ?`).join(", ");
     await tx.exec(`UPDATE site_settings SET ${assignments} WHERE \`key\` = 'global'`, keys.map((key) => fields[key]));
