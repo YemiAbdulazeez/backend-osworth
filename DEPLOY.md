@@ -18,6 +18,18 @@ Managed MySQL (Aiven, Azure, etc.) usually needs TLS:
 mysql://USER:PASSWORD@HOST:PORT/DATABASE?ssl-mode=REQUIRED
 ```
 
+If migrate fails with `self-signed certificate in certificate chain`, keep TLS on but allow the provider CA (default in this app). Only set `MYSQL_SSL_REJECT_UNAUTHORIZED=true` plus `MYSQL_SSL_CA` (Aiven CA PEM) if you want full verification.
+
+Also ensure Render `NODE_ENV=production` (not `development`).
+Aiven often fails with `self-signed certificate in certificate chain` if Node verifies the chain strictly. This API defaults to TLS **with** `rejectUnauthorized: false` for `ssl-mode=REQUIRED`. To pin Aiven’s CA instead, set:
+
+| Variable | Value |
+|----------|--------|
+| `MYSQL_SSL_REJECT_UNAUTHORIZED` | `true` |
+| `MYSQL_SSL_CA` | full PEM text of Aiven `ca.pem` |
+
+Also set Render `NODE_ENV=production` (logs showing `NODE_ENV=development` mean that env var is wrong on the service).
+
 ## One-time setup
 
 1. Create a MySQL 8 database (Aiven, Azure Database for MySQL, Railway, or any managed MySQL). Render does not host MySQL.

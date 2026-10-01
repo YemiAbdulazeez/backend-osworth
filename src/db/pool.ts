@@ -11,8 +11,12 @@ type PoolConfig = {
   ssl?: SslOptions;
 };
 
+function sslMode(url: URL): string {
+  return (url.searchParams.get("ssl-mode") ?? url.searchParams.get("sslMode") ?? "").toUpperCase();
+}
+
 function wantsSsl(url: URL): boolean {
-  const mode = (url.searchParams.get("ssl-mode") ?? url.searchParams.get("sslMode") ?? "").toUpperCase();
+  const mode = sslMode(url);
   const ssl = (url.searchParams.get("ssl") ?? "").toLowerCase();
   if (ssl === "true" || ssl === "1" || ssl === "require") return true;
   return mode === "REQUIRED" || mode === "VERIFY_CA" || mode === "VERIFY_IDENTITY" || mode === "REQUIRED_VERIFY_CA";
@@ -35,8 +39,20 @@ export function connectionFromUrl(databaseUrl: string): PoolConfig {
   };
 
   if (wantsSsl(url)) {
-    // Managed MySQL (Aiven, Azure, etc.) requires TLS. CA pinning can be added later if needed.
-    config.ssl = { rejectUnauthorized: true };
+    // Aiven (and some managed MySQL hosts) present an intermediate CA that Node
+    // does not trust by default → HANDSHAKE_SSL_ERROR / self-signed certificate.
+    // TLS is still used. Set MYSQL_SSL_REJECT_UNAUTHORIZED=true and MYSQL_SSL_CA
+    // (PEM contents) for full CA verification.
+    const mode = sslMode(url);
+    const strict =
+      process.env.MYSQL_SSL_REJECT_UNAUTHORIZED === "true" ||
+      mode === "VERIFY_CA" ||
+      mode === "VERIFY_IDENTITY" ||
+      mode === "REQUIRED_VERIFY_CA";
+    const ssl: SslOptions = { rejectUnauthorized: strict };
+    const ca = process.env.MYSQL_SSL_CA?.trim();
+    if (ca?.includes("BEGIN CERTIFICATE")) ssl.ca = ca;
+    config.ssl = ssl;
   }
 
   return config;
