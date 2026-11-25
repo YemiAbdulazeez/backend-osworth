@@ -107,14 +107,29 @@ test("public reads, auth, intake, audit and analytics are wired", async (t) => {
     email: `admin-${Date.now()}@example.com`,
     phone: "",
     address: "",
+    role: "admin",
+    password: "Ow-TestPass99",
   });
   assert.equal(invite.status, 201, JSON.stringify(invite.body));
-  assert.equal(typeof invite.body.temporaryPassword, "string");
+  assert.equal(invite.body.temporaryPassword, "Ow-TestPass99");
+  assert.equal(invite.body.user.role, "admin");
   const invitee = await request(app).post("/api/v1/auth/login").send({
     email: invite.body.user.email,
     password: invite.body.temporaryPassword,
   });
   assert.equal(invitee.status, 200, JSON.stringify(invitee.body));
+  const reset = await request(app)
+    .post(`/api/v1/admin/users/${invite.body.user.id}/reset-password`)
+    .set(auth)
+    .send({});
+  assert.equal(reset.status, 200, JSON.stringify(reset.body));
+  assert.equal(typeof reset.body.temporaryPassword, "string");
+  const suspended = await request(app)
+    .patch(`/api/v1/admin/users/${invite.body.user.id}/status`)
+    .set(auth)
+    .send({ status: "suspended" });
+  assert.equal(suspended.status, 200, JSON.stringify(suspended.body));
+  assert.equal(suspended.body.status, "suspended");
   const deleted = await request(app).delete(`/api/v1/admin/users/${invite.body.user.id}`).set(auth);
   assert.equal(deleted.status, 204);
 

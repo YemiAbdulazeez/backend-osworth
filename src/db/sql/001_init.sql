@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   address TEXT NULL,
   avatar_url TEXT NULL,
   role ENUM('super_admin','admin','editor','staff') NOT NULL DEFAULT 'admin',
+  status ENUM('active','suspended') NOT NULL DEFAULT 'active',
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   UNIQUE KEY uq_users_email (email)

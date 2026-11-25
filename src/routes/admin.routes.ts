@@ -6,7 +6,18 @@ import { requireContentWriter, requireEngagementDelete, requireRole, requireStaf
 import { parseQuery, validateBody } from "../middleware/validate.js";
 import { listAudit } from "../services/audit.service.js";
 import { dashboard, overview, topPages, topProducts } from "../services/analytics.service.js";
-import { changePassword, createAdmin, getProfile, listSessions, listUsers, removeAdmin, revokeSession, updateProfile } from "../services/auth.service.js";
+import {
+  changePassword,
+  createAdmin,
+  getProfile,
+  listSessions,
+  listUsers,
+  removeAdmin,
+  resetAdminPassword,
+  revokeSession,
+  setAdminStatus,
+  updateProfile,
+} from "../services/auth.service.js";
 import {
   createCareer,
   createCategory,
@@ -83,6 +94,8 @@ import {
   productPatchSchema,
   productWriteSchema,
   profilePatchSchema,
+  resetUserPasswordSchema,
+  setUserStatusSchema,
   settingsPatchSchema,
   statusQuerySchema,
   subscriberStatusSchema,
@@ -121,6 +134,22 @@ router.get("/users", requireRole("super_admin"), asyncHandler(async (_req, res) 
 router.post("/users", requireRole("super_admin"), validateBody(createUserSchema), asyncHandler(async (req, res) => {
   res.status(201).json(await createAdmin(req.staff!, req.body));
 }));
+router.post(
+  "/users/:id/reset-password",
+  requireRole("super_admin"),
+  validateBody(resetUserPasswordSchema),
+  asyncHandler(async (req, res) => {
+    res.json(await resetAdminPassword(req.staff!, idOf(req.params.id), req.body));
+  }),
+);
+router.patch(
+  "/users/:id/status",
+  requireRole("super_admin"),
+  validateBody(setUserStatusSchema),
+  asyncHandler(async (req, res) => {
+    res.json(await setAdminStatus(req.staff!, idOf(req.params.id), req.body.status));
+  }),
+);
 router.delete("/users/:id", requireRole("super_admin"), asyncHandler(async (req, res) => {
   await removeAdmin(req.staff!, idOf(req.params.id));
   res.status(204).end();

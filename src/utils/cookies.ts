@@ -9,27 +9,27 @@ export const REMEMBER_COOKIE = "osworth_remember";
 const REMEMBER_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function refreshCookieOptions(rememberMe = false): CookieOptions {
-  const options: CookieOptions = {
+  const refreshMs = ttlToMs(env.JWT_REFRESH_TTL);
+  return {
     httpOnly: true,
     secure: env.cookieSecure,
     sameSite: env.cookieSameSite,
     path: "/api/v1/auth",
+    // Always persist the refresh cookie so admin sessions survive browser restarts
+    // and short access-token expiry. "Remember me" keeps it for at least 30 days.
+    maxAge: rememberMe ? Math.max(refreshMs, REMEMBER_MAX_AGE_MS) : refreshMs,
   };
-  if (rememberMe) {
-    options.maxAge = Math.max(ttlToMs(env.JWT_REFRESH_TTL), REMEMBER_MAX_AGE_MS);
-  }
-  // Without rememberMe, omit maxAge so the cookie is session-scoped (cleared when the browser closes).
-  return options;
 }
 
 export function setRefreshCookie(res: Response, token: string, rememberMe = false) {
-  res.cookie(REFRESH_COOKIE, token, refreshCookieOptions(rememberMe));
+  const options = refreshCookieOptions(rememberMe);
+  res.cookie(REFRESH_COOKIE, token, options);
   res.cookie(REMEMBER_COOKIE, rememberMe ? "1" : "0", {
     httpOnly: true,
     secure: env.cookieSecure,
     sameSite: env.cookieSameSite,
     path: "/api/v1/auth",
-    ...(rememberMe ? { maxAge: REMEMBER_MAX_AGE_MS } : {}),
+    maxAge: options.maxAge,
   });
 }
 

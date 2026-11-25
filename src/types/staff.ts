@@ -9,6 +9,8 @@ export type StaffActor = {
   sessionId: string;
 };
 
+export type UserStatus = "active" | "suspended";
+
 export type PublicUser = {
   id: string;
   email: string;
@@ -17,6 +19,7 @@ export type PublicUser = {
   address: string;
   avatarUrl: string;
   role: StaffRole;
+  status: UserStatus;
   createdAt: string;
   updatedAt: string;
 };

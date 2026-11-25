@@ -20,7 +20,7 @@ async function send(input: { to: string; subject: string; html: string; text: st
     return false;
   }
   try {
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: env.EMAIL_FROM,
       to: input.to,
       subject: input.subject,
@@ -28,6 +28,16 @@ async function send(input: { to: string; subject: string; html: string; text: st
       text: input.text,
       replyTo: input.replyTo,
     });
+    if (error) {
+      console.error("[mail] Resend rejected", {
+        to: input.to,
+        subject: input.subject,
+        from: env.EMAIL_FROM,
+        message: error.message,
+      });
+      return false;
+    }
+    console.info(`[mail] sent via Resend id=${data?.id ?? "unknown"} to=${input.to}`);
     return true;
   } catch (error) {
     console.error("[mail] failed", { to: input.to, subject: input.subject, error });

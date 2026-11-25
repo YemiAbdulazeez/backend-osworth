@@ -36,6 +36,16 @@ export const createUserSchema = z.object({
   email: z.string().trim().email().max(255),
   phone: z.string().trim().max(64).optional().default(""),
   address: z.string().trim().max(5000).optional().default(""),
+  role: z.enum(["admin", "super_admin"]).default("admin"),
+  password: z.string().trim().min(8).max(200).optional(),
+});
+
+export const resetUserPasswordSchema = z.object({
+  password: z.string().trim().min(8).max(200).optional(),
+});
+
+export const setUserStatusSchema = z.object({
+  status: z.enum(["active", "suspended"]),
 });
 
 export const productWriteSchema = z.object({

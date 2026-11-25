@@ -12,7 +12,9 @@
     "test": "tsx --test src/utils/slugify.test.ts src/utils/tokens.test.ts src/validations/public.test.ts src/app.e2e.test.ts",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
-    "db:verify": "tsx src/db/verify.ts"
+    "db:verify": "tsx src/db/verify.ts",
+    "db:upload-product-images": "tsx scripts/upload-product-images.ts",
+    "db:upload-hero-images": "tsx scripts/upload-hero-images.ts"
   },
   "engines": {
     "node": ">=20"

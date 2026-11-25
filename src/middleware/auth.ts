@@ -36,11 +36,14 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     }
 
     const users = await database.query(
-      `SELECT id, name, email, role FROM users WHERE id = ? LIMIT 1`,
+      `SELECT id, name, email, role, status FROM users WHERE id = ? LIMIT 1`,
       [decoded.sub],
     );
     const user = users[0];
     if (!user) throw new HttpError(401, "UNAUTHENTICATED", "Account no longer exists");
+    if (String(user.status ?? "active") === "suspended") {
+      throw new HttpError(403, "ACCOUNT_SUSPENDED", "This account has been suspended. Contact a super admin.");
+    }
 
     const sessions = await database.query(
       `SELECT id, user_id FROM sessions WHERE id = ? AND revoked_at IS NULL LIMIT 1`,

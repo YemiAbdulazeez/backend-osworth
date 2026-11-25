@@ -7,11 +7,12 @@ import type { PublicUser, StaffActor, StaffRole } from "../types/staff.js";
 import { uuid } from "../utils/ids.js";
 import { hashPassword, tempPassword, verifyPassword } from "../utils/passwords.js";
 import { hashToken, newRefreshToken } from "../utils/tokens.js";
-import { sendAdminInvite, sendPasswordChanged } from "./mail.service.js";
+import type { UserStatus } from "../types/staff.js";
 
 let dummyHash: string | null = null;
 
 function mapUser(row: SqlRow): PublicUser {
+  const status = String(row.status ?? "active") === "suspended" ? "suspended" : "active";
   return {
     id: String(row.id),
     email: String(row.email),
@@ -20,6 +21,7 @@ function mapUser(row: SqlRow): PublicUser {
     address: row.address == null ? "" : String(row.address),
     avatarUrl: row.avatar_url == null ? "" : String(row.avatar_url),
     role: String(row.role) as StaffRole,
+    status: status as UserStatus,
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
   };
@@ -39,6 +41,9 @@ export async function login(input: { email: string; password: string; userAgent:
   }
   const matches = await verifyPassword(input.password, String(user.password_hash));
   if (!matches) throw new HttpError(401, "INVALID_CREDENTIALS", "Invalid email or password");
+  if (String(user.status ?? "active") === "suspended") {
+    throw new HttpError(403, "ACCOUNT_SUSPENDED", "This account has been suspended. Contact a super admin.");
+  }
 
   const sessionId = uuid();
   const refreshToken = newRefreshToken();
@@ -65,7 +70,7 @@ export async function login(input: { email: string; password: string; userAgent:
 
 export async function refresh(refreshToken: string) {
   const rows = await database.query(
-    `SELECT s.id, s.user_id, u.email, u.role
+    `SELECT s.id, s.user_id, u.email, u.role, u.status
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.refresh_token_hash = ? AND s.revoked_at IS NULL
@@ -74,6 +79,9 @@ export async function refresh(refreshToken: string) {
   );
   const session = rows[0];
   if (!session) throw new HttpError(401, "UNAUTHENTICATED", "Refresh token is invalid or expired");
+  if (String(session.status ?? "active") === "suspended") {
+    throw new HttpError(403, "ACCOUNT_SUSPENDED", "This account has been suspended. Contact a super admin.");
+  }
   const nextToken = newRefreshToken();
   await database.exec(
     `UPDATE sessions SET refresh_token_hash = ?, last_active_at = CURRENT_TIMESTAMP(3) WHERE id = ? AND revoked_at IS NULL`,
@@ -162,7 +170,6 @@ export async function changePassword(actor: StaffActor, currentPassword: string,
       [actor.id, actor.sessionId],
     );
   });
-  await sendPasswordChanged({ name: actor.name, email: actor.email });
 }
 
 export async function listSessions(actor: StaffActor) {
@@ -209,36 +216,84 @@ export async function listUsers() {
 
 export async function createAdmin(
   actor: StaffActor,
-  input: { name: string; email: string; phone: string; address: string },
+  input: {
+    name: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    role?: "admin" | "super_admin";
+    password?: string;
+  },
 ) {
   const email = input.email.trim().toLowerCase();
   const name = input.name.trim();
+  const role = input.role === "super_admin" ? "super_admin" : "admin";
   const existing = await database.query(`SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1`, [email]);
   if (existing[0]) throw new HttpError(409, "CONFLICT", "An account with that email already exists");
-  const password = tempPassword();
+  const password = input.password?.trim() && input.password.trim().length >= 8 ? input.password.trim() : tempPassword();
   const passwordHash = await hashPassword(password);
   const id = uuid();
   const user = await withAudit(
     actor,
-    `Created a new admin account for ${name} (${email}) and sent login details by email`,
+    `Created a new ${role.replace("_", " ")} account for ${name} (${email})`,
     async (tx) => {
       await tx.exec(
-        `INSERT INTO users (id, name, email, password_hash, phone, address, avatar_url, role)
-         VALUES (?, ?, ?, ?, ?, ?, NULL, 'admin')`,
-        [id, name, email, passwordHash, input.phone.trim(), input.address.trim()],
+        `INSERT INTO users (id, name, email, password_hash, phone, address, avatar_url, role, status)
+         VALUES (?, ?, ?, ?, ?, ?, NULL, ?, 'active')`,
+        [id, name, email, passwordHash, (input.phone ?? "").trim(), (input.address ?? "").trim(), role],
       );
       return mapUser(await requireRow(tx, "users", id, "User"));
     },
   );
-  const emailSent = await sendAdminInvite({ name, email, password });
-  return { user, emailSent, temporaryPassword: password };
+  return { user, temporaryPassword: password };
+}
+
+export async function resetAdminPassword(
+  actor: StaffActor,
+  id: string,
+  input?: { password?: string },
+) {
+  if (id === actor.id) {
+    throw new HttpError(400, "VALIDATION_ERROR", "Use My profile to change your own password");
+  }
+  const target = await requireRow(database, "users", id, "User");
+  const password = input?.password?.trim() && input.password.trim().length >= 8 ? input.password.trim() : tempPassword();
+  const passwordHash = await hashPassword(password);
+  await withAudit(
+    actor,
+    `Reset password for ${String(target.name)} (${String(target.email)})`,
+    async (tx) => {
+      await updateById(tx, "users", id, { password_hash: passwordHash });
+      await tx.exec(`UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP(3) WHERE user_id = ? AND revoked_at IS NULL`, [id]);
+    },
+  );
+  return { user: mapUser(await requireRow(database, "users", id, "User")), temporaryPassword: password };
+}
+
+export async function setAdminStatus(actor: StaffActor, id: string, status: UserStatus) {
+  if (id === actor.id) throw new HttpError(403, "FORBIDDEN", "You cannot suspend your own account");
+  const target = await requireRow(database, "users", id, "User");
+  if (String(target.role) === "super_admin" && status === "suspended") {
+    throw new HttpError(403, "FORBIDDEN", "Super admin accounts cannot be suspended");
+  }
+  await withAudit(
+    actor,
+    `${status === "suspended" ? "Suspended" : "Reactivated"} account for ${String(target.name)} (${String(target.email)})`,
+    async (tx) => {
+      await updateById(tx, "users", id, { status });
+      if (status === "suspended") {
+        await tx.exec(`UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP(3) WHERE user_id = ? AND revoked_at IS NULL`, [id]);
+      }
+    },
+  );
+  return mapUser(await requireRow(database, "users", id, "User"));
 }
 
 export async function removeAdmin(actor: StaffActor, id: string) {
   if (id === actor.id) throw new HttpError(403, "FORBIDDEN", "You cannot remove your own account");
   const target = await requireRow(database, "users", id, "User");
   if (String(target.role) === "super_admin") {
-    throw new HttpError(403, "FORBIDDEN", "The super admin account cannot be removed");
+    throw new HttpError(403, "FORBIDDEN", "Super admin accounts cannot be removed");
   }
   await withAudit(actor, `Removed admin account for ${String(target.name)} (${String(target.email)})`, async (tx) => {
     await tx.exec(`UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP(3) WHERE user_id = ? AND revoked_at IS NULL`, [id]);

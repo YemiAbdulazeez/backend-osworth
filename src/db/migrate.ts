@@ -21,6 +21,11 @@ function statements(sql: string): string[] {
  */
 const ADDED_COLUMNS = [
   { table: "site_settings", column: "ecommerce_enabled", definition: "TINYINT(1) NOT NULL DEFAULT 0 AFTER seo_description" },
+  {
+    table: "users",
+    column: "status",
+    definition: "ENUM('active','suspended') NOT NULL DEFAULT 'active' AFTER role",
+  },
 ];
 
 async function ensureColumn(conn: PoolConnection, table: string, column: string, definition: string) {
