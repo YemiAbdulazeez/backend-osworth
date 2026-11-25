@@ -29,7 +29,7 @@ export const SETTINGS = {
   social_x: null,
   newsletter_text: "Get updates on our products, healthcare initiatives and company news.",
   footer_text: "© Osworth Nigeria Limited",
-  may_and_baker_url: null,
+  may_and_baker_url: "https://may-bakerng.com",
   seo_title: "Osworth Nigeria Limited — Quality Healthcare Within Reach",
   seo_description:
     "Quality pharmaceutical, personal care and healthcare products from Osworth Nigeria Limited, a wholly owned subsidiary of May & Baker Nigeria Plc.",
@@ -111,7 +111,7 @@ export const PRODUCTS: ProductSeed[] = [
 
 export const HERO = [
   ["Quality Healthcare. Within Reach.", "Osworth Nigeria Limited", "Quality pharmaceutical, personal care and healthcare products designed to support healthier lives.", "Explore Our Products", "/products"],
-  ["Healthcare Solutions Built Around People", "Safe. Effective. Affordable.", "We are committed to making safe, effective and affordable healthcare products available to the people we serve.", "View Our Range", "/products"],
+  ["Healthcare Solutions Built Around People", "Quality and Affordable.", "We are committed to providing quality and affordable healthcare products.", "View Our Range", "/products"],
   ["Trusted Healthcare Products for Nigeria and Beyond", "Nigerian roots. African ambition.", "We serve customers across Nigeria and aim to extend our value creation to other African markets.", "About Osworth", "/about"],
   ["Part of the May & Baker Nigeria Family", "A wholly owned subsidiary", "We leverage the heritage, reputation and pharmaceutical expertise of May & Baker Nigeria Plc.", "Discover May & Baker", "/may-and-baker"],
 ].map((row, index) => ({

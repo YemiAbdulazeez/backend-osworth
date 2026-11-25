@@ -28,6 +28,13 @@ try {
     await insertIgnore("products", { ...row, image_url: null, gallery: JSON.stringify([]), status: "published", created_at: "2008-09-01 00:00:00.000" });
   }
   for (const row of HERO) await insertIgnore("hero_slides", row);
+  // Refresh seeded hero copy for existing rows (insertIgnore skips updates)
+  for (const row of HERO) {
+    await database.exec(
+      `UPDATE hero_slides SET title = ?, subtitle = ?, description = ?, cta_label = ?, cta_url = ? WHERE id = ?`,
+      [row.title, row.subtitle, row.description, row.cta_label, row.cta_url, row.id],
+    );
+  }
   for (const row of DISTRIBUTORS) await insertIgnore("distributors", row);
   for (const row of PAGES) await insertIgnore("pages", row);
   for (const row of NEWS) await insertIgnore("news_posts", row);
